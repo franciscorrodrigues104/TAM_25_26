@@ -80,7 +80,38 @@
     color: #c0392b;
   }
 
-  
+  .lista-dados {
+    margin-top: 30px;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 2px solid #ecf0f1;
+    border-radius: 10px;
+    padding: 15px;
+    background: white;
+  }
+
+  .dado-item {
+    background: #e8f4f8;
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+    text-align: left;
+  }
+
+  .dado-movimento {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 14px;
+  }
+
+  .dado-fumo {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 14px;
+    margin-top: 5px;
+  }
+
   .lista-alertas {
     margin-top: 30px;
     max-height: 200px;
@@ -112,7 +143,7 @@
     margin-top: 5px;
   }
 
-  .sem-alertas {
+  .sem-dados {
     color: #2a432b;
     font-style: italic;
     padding: 20px;
@@ -127,18 +158,27 @@
   <button id="desligado">Desligar Alarme</button>
   <div class="status" id="status"></div>
 
-  <!-- Lista de Alertas -->
+  <div class="lista-dados" id="lista-dados">
+    <h3>Últimos Dados</h3>
+    <div id="conteudo-dados">
+      <div class="sem-dados">Nenhum dado recebido</div>
+    </div>
+  </div>
+
   <div class="lista-alertas" id="lista-alertas">
-    <div class="sem-alertas">Nenhum alerta recebido</div>
+    <h3>Alertas Recentes</h3>
+    <div id="conteudo-alertas">
+      <div class="sem-dados">Nenhum alerta recebido</div>
+    </div>
   </div>
 </div>
 
 <script>
-  const ipAPI = "tam-25-26-zqe3.vercel.app"; 
+  const ipAPI = "192.168.1.69:5000"; 
   const statusEl = document.getElementById('status');
-  const listaAlertasEl = document.getElementById('lista-alertas');
+  const conteudoAlertasEl = document.getElementById('conteudo-alertas');
+  const conteudoDadosEl = document.getElementById('conteudo-dados');
 
-  // Função para carregar alertas
   async function carregarAlertas() {
     try {
       const response = await fetch(`http://${ipAPI}/alertas`);
@@ -151,17 +191,25 @@
     }
   }
 
-  // Função para exibir alertas
+  async function carregarDados() {
+    try {
+      const response = await fetch(`http://${ipAPI}/dados`);
+      if (!response.ok) return;
+      
+      const dados = await response.json();
+      exibirDados(dados);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+    }
+  }
+
   function exibirAlertas(alertas) {
     if (alertas.length === 0) {
-      listaAlertasEl.innerHTML = '<div class="sem-alertas">Nenhum alerta identificado</div>';
+      conteudoAlertasEl.innerHTML = '<div class="sem-dados">Nenhum alerta identificado</div>';
       return;
     }
-
-    // Ordenar por timestamp (mais recentes primeiro)
-    alertas.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     
-    listaAlertasEl.innerHTML = alertas.map(alerta => `
+    conteudoAlertasEl.innerHTML = alertas.map(alerta => `
       <div class="alerta-item">
         <div class="alerta-mensagem">${alerta.mensagem}</div>
         <div class="alerta-timestamp">${formatarData(alerta.timestamp)}</div>
@@ -169,19 +217,31 @@
     `).join('');
   }
 
-  // Função para formatar data
+  function exibirDados(dados) {
+    if (!dados || dados.length === 0) {
+      conteudoDadosEl.innerHTML = '<div class="sem-dados">Nenhum dado disponível</div>';
+      return;
+    }
+    
+    conteudoDadosEl.innerHTML = dados.map(dado => `
+      <div class="dado-item">
+        <div class="dado-movimento">Movimento: ${dado.movimento}</div>
+        <div class="dado-fumo">Fumo: ${dado.fumo}</div>
+      </div>
+    `).join('');
+  }
+
   function formatarData(timestamp) {
     const data = new Date(timestamp);
     return data.toLocaleString('pt-PT');
   }
 
   async function acionar(comando) {
-   
     let endpoint = "";
     if (comando === "ligado") endpoint = "ligar_alarme";
     if (comando === "desligado") endpoint = "desligar_alarme";
     
-statusEl.textContent = `A enviar o comando para a rota ${ipAPI}/${endpoint}`;
+    statusEl.textContent = `A enviar o comando para a rota ${ipAPI}/${endpoint}`;
     statusEl.className = "status";
 
     try {
@@ -197,13 +257,12 @@ statusEl.textContent = `A enviar o comando para a rota ${ipAPI}/${endpoint}`;
     }
   }
 
-  // Inicialização
   document.addEventListener('DOMContentLoaded', function() {
-    // Carregar alertas inicialmente
     carregarAlertas();
+    carregarDados();
     
-    // Atualizar alertas a cada 3 segundos
     setInterval(carregarAlertas, 5000);
+    setInterval(carregarDados, 5000);
   });
 
   document.getElementById('ligado').addEventListener('click', () => acionar('ligado'));
