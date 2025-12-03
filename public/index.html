@@ -134,7 +134,7 @@
 </div>
 
 <script>
-  const ipAPI = "192.168.1.69:5000"; 
+  const ipAPI = "tam-25-26-zqe3.vercel.app"; 
   const statusEl = document.getElementById('status');
   const listaAlertasEl = document.getElementById('lista-alertas');
 
@@ -203,7 +203,7 @@ statusEl.textContent = `A enviar o comando para a rota ${ipAPI}/${endpoint}`;
     carregarAlertas();
     
     // Atualizar alertas a cada 3 segundos
-    setInterval(carregarAlertas, 1000);
+    setInterval(carregarAlertas, 5000);
   });
 
   document.getElementById('ligado').addEventListener('click', () => acionar('ligado'));

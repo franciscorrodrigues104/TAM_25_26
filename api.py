@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import os
 from flask_cors import CORS
 
-
+load_dotenv(".env.local")
 
 app = Flask(__name__)
 CORS(app) #cors para o browser não bloquear a resposta
