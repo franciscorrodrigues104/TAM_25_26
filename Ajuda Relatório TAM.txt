@@ -1,0 +1,223 @@
+Ajuda Relatório TAM
+
+Criação tabela de logs no pgadmin (postgres)
+
+CREATE TABLE IF NOT EXISTS tam_25_26.acoes (
+    id SERIAL PRIMARY KEY,
+    evento VARCHAR(255) NOT NULL,
+    data TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+
+
+
+///////////////////////////Arduino//////////////////////
+// C++ code
+//
+#include <WiFiNINA.h>
+#include <ArduinoHttpClient.h>
+
+// Pinos
+int led1 = 2;
+int pirPin = 6;
+int buzzerPin = 7;
+int button = 8;
+int button2 = 9;
+int buttonState = 0;
+int buttonState2 = 0;
+
+bool alarmeFumoAtivo = true;
+
+// WiFi
+char ssid[] = "MEO-D919C0";
+char pass[] = "0ce021efe9";
+
+// Flask
+char serverAddress[] = "192.168.1.69";
+int port = 5000;
+
+WiFiClient wifiClient;
+HttpClient http(wifiClient, serverAddress, port);
+
+// Temporizadores
+unsigned long lastEnvio = 0;
+unsigned long lastComando = 0;
+const unsigned long intervaloEnvio = 500;
+const unsigned long intervaloComando = 300;
+
+void setup() {
+  pinMode(led1, OUTPUT);
+  pinMode(pirPin, INPUT);
+  pinMode(A0, INPUT);
+  pinMode(buzzerPin, OUTPUT);
+  pinMode(button, INPUT);
+  pinMode(button2, INPUT);
+
+  Serial.begin(9600);
+
+  WiFi.begin(ssid, pass);
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println("\nWiFi ligado!");
+}
+
+void loop() {
+  unsigned long currentMillis = millis();
+  String response = "";   // torna acessível em todo o loop
+
+  // --------------------------//
+  // 1. Ler comandos do Flask //
+  // --------------------------//
+   if (currentMillis - lastComando >= intervaloComando) {
+    lastComando = currentMillis;
+
+    if (WiFi.status() == WL_CONNECTED) {
+      http.get("/estado_alarme");
+
+      int statusCode = http.responseStatusCode();
+      response = http.responseBody();
+      Serial.print("Resposta Flask: ");
+      Serial.print(response);
+
+      // atualizar estado do alarme vindo da API
+      if (response == "ativo"){Serial.println("Esta a passar ativo!"); alarmeFumoAtivo = true;} 
+      if (response == "desativo"){ Serial.println("Esta a passar desativo!"); alarmeFumoAtivo = false;}
+    }
+  }
+
+  int estadoPIR = digitalRead(pirPin); 
+   int SIN = 70;
+   buttonState = digitalRead(button);
+buttonState2 = digitalRead(button2);
+ if (estadoPIR == HIGH) {
+    Serial.println("Movimento detetado!");
+    digitalWrite(led1, HIGH);
+    
+  } 
+  
+  else {
+    digitalWrite(led1, LOW);         
+  }
+
+  if (buttonState == HIGH && alarmeFumoAtivo) {
+          Serial.println("Alarme de fumo desligado!");
+          Serial.println("Entrou no if de desligarrrrrrr!");
+
+          if (WiFi.status() == WL_CONNECTED) {
+      http.beginRequest();
+      http.get("/desligar_alarme");
+      http.endRequest();
+      
+      int statusCode = http.responseStatusCode();
+      String response = http.responseBody();
+      
+      Serial.print("Resposta /desligar_alarme: ");
+      Serial.print(statusCode);
+      Serial.print(" - ");
+      Serial.println(response);
+      
+      // Atualizar estado local
+      digitalWrite(led1, LOW);
+      noTone(buzzerPin);
+    }
+          alarmeFumoAtivo = false;
+
+    delay(300);
+    noTone(buzzerPin);
+
+    }
+  else if(buttonState2 == HIGH){
+    Serial.println("Entrou no if de ligarrrrrrr!");
+if (WiFi.status() == WL_CONNECTED) {
+      http.beginRequest();
+      http.get("/ligar_alarme");
+      http.endRequest();
+      
+      int statusCode = http.responseStatusCode();
+      String response = http.responseBody();
+      
+      Serial.print("Resposta /ligar_alarme: ");
+      Serial.print(statusCode);
+      Serial.print(" - ");
+      Serial.println(response);
+}
+    delay(300);
+    }
+
+if(alarmeFumoAtivo){
+  if (SIN < 50) {
+  Serial.println("Sem fumo detetado!");
+    noTone(buzzerPin);
+    
+} 
+else if (SIN > 50 && SIN < 100) {
+  Serial.println("Fumo detetado!");
+  noTone(buzzerPin);
+ 
+} 
+else if (SIN >= 100) {
+  Serial.println("Muito fumo detetado!");
+    Serial.println(buttonState);
+
+  tone(buzzerPin, 1000);
+}
+    
+  }else {
+    noTone(buzzerPin);
+  }
+
+
+  // --------------------------//
+  // 6. Enviar JSON ao Flask   //
+  // --------------------------//
+  if (currentMillis - lastEnvio >= intervaloEnvio) {
+    lastEnvio = currentMillis;
+
+    if (WiFi.status() == WL_CONNECTED) {
+      String json = String("{\"movimento\":") + estadoPIR +
+                    ",\"fumo\":" + SIN+ "}";
+
+      Serial.println("A enviar JSON:");
+      Serial.println(json);
+
+      http.beginRequest();
+      http.post("/receber_dados");
+      http.sendHeader("Content-Type", "application/json");
+      http.sendHeader("Content-Length", json.length());
+      http.beginBody();
+      http.print(json);
+      http.endRequest();
+
+      Serial.print("Status HTTP: ");
+      Serial.println(http.responseStatusCode());
+
+     
+    }
+  }
+
+  delay(50);
+}
+
+
+
+
+///////////////////Relatório//////////////////
+
+I. Introdução - Breve resumo do objetivo do sistema (retirado do planeamento). F
+II. Arquitetura Final - Descrição técnica dos componentes utilizados, justificando eventuais desvios em relação ao plano inicial (Tecnologia, Sensores, Protocolos). F
+III. Detalhes de Implementação - Explicação da lógica de programação e das etapas críticas de desenvolvimento em cada camada (Embebido, Backend, Frontend).
+Incluir diagramas (p. ex., diagramas de blocos, esquemas de comunicação).
+IV. Testes e Validação - Descrição dos procedimentos de teste realizados (funcionalidade, estabilidade, latência, etc.). Apresentação dos resultados e prova de que o sistema atende aos objetivos definidos.
+V. Conclusão e Auto-avaliação-Análise crítica do desempenho do sistema final. Identificação dos principais desafios e limitações. Sugestões de melhorias futuras.
+
+
+
+
+
+
+
+
+
+

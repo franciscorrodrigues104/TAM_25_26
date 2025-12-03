@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebApp para controlo do alarme</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  body {
+    background-color: #2a432b;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .container {
+    background-color: #e9e9e9;
+    padding: 40px;
+    border-radius: 20px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    text-align: center;
+    max-width: 500px;
+    width: 90%;
+  }
+
+  h1 {
+    margin-bottom: 30px;
+    color: #2a432b;
+  }
+
+  button {
+    padding: 15px 40px;
+    margin: 10px;
+    font-size: 18px;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #0000009b;
+  }
+
+  #ligado {
+    background-color: #27ae60;
+  }
+
+  #ligado:hover {
+    background-color: #2ecc71;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px #0000009b;
+  }
+
+  #desligado {
+    background-color: #c0392b;
+  }
+
+  #desligado:hover {
+    background-color: #e74c3c;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+
+  .status {
+    margin-top: 20px;
+    font-size: 16px;
+  }
+
+  .success {
+    color: #27ae60;
+  }
+
+  .error {
+    color: #c0392b;
+  }
+
+  
+  .lista-alertas {
+    margin-top: 30px;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 2px solid #ecf0f1;
+    border-radius: 10px;
+    padding: 15px;
+    background: white;
+  }
+
+  .alerta-item {
+    background: #fadbd8;
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    border-left: 4px solid #e74c3c;
+    text-align: left;
+  }
+
+  .alerta-mensagem {
+    font-weight: bold;
+    color: #c0392b;
+    font-size: 14px;
+  }
+
+  .alerta-timestamp {
+    font-size: 11px;
+    color: #7f8c8d;
+    margin-top: 5px;
+  }
+
+  .sem-alertas {
+    color: #2a432b;
+    font-style: italic;
+    padding: 20px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Controlar Alarme</h1>
+  <button id="ligado">Ligar Alarme</button>
+  <button id="desligado">Desligar Alarme</button>
+  <div class="status" id="status"></div>
+
+  <!-- Lista de Alertas -->
+  <div class="lista-alertas" id="lista-alertas">
+    <div class="sem-alertas">Nenhum alerta recebido</div>
+  </div>
+</div>
+
+<script>
+  const ipAPI = "192.168.1.69:5000"; 
+  const statusEl = document.getElementById('status');
+  const listaAlertasEl = document.getElementById('lista-alertas');
+
+  // Função para carregar alertas
+  async function carregarAlertas() {
+    try {
+      const response = await fetch(`http://${ipAPI}/alertas`);
+      if (!response.ok) return;
+      
+      const alertas = await response.json();
+      exibirAlertas(alertas);
+    } catch (error) {
+      console.error('Erro ao carregar alertas:', error);
+    }
+  }
+
+  // Função para exibir alertas
+  function exibirAlertas(alertas) {
+    if (alertas.length === 0) {
+      listaAlertasEl.innerHTML = '<div class="sem-alertas">Nenhum alerta identificado</div>';
+      return;
+    }
+
+    // Ordenar por timestamp (mais recentes primeiro)
+    alertas.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    listaAlertasEl.innerHTML = alertas.map(alerta => `
+      <div class="alerta-item">
+        <div class="alerta-mensagem">${alerta.mensagem}</div>
+        <div class="alerta-timestamp">${formatarData(alerta.timestamp)}</div>
+      </div>
+    `).join('');
+  }
+
+  // Função para formatar data
+  function formatarData(timestamp) {
+    const data = new Date(timestamp);
+    return data.toLocaleString('pt-PT');
+  }
+
+  async function acionar(comando) {
+   
+    let endpoint = "";
+    if (comando === "ligado") endpoint = "ligar_alarme";
+    if (comando === "desligado") endpoint = "desligar_alarme";
+    
+statusEl.textContent = `A enviar o comando para a rota ${ipAPI}/${endpoint}`;
+    statusEl.className = "status";
+
+    try {
+      const response = await fetch(`http://${ipAPI}/${endpoint}`);
+      if (!response.ok) throw new Error("Erro na requisição");
+      
+      const text = await response.text();
+      statusEl.textContent = `O alarme foi ${comando} com sucesso!`;
+      statusEl.classList.add("success");
+    } catch (error) {
+      statusEl.textContent = `Falha ao enviar comando: ${error.message}`;
+      statusEl.classList.add("error");
+    }
+  }
+
+  // Inicialização
+  document.addEventListener('DOMContentLoaded', function() {
+    // Carregar alertas inicialmente
+    carregarAlertas();
+    
+    // Atualizar alertas a cada 3 segundos
+    setInterval(carregarAlertas, 1000);
+  });
+
+  document.getElementById('ligado').addEventListener('click', () => acionar('ligado'));
+  document.getElementById('desligado').addEventListener('click', () => acionar('desligado'));
+</script>
+
+</body>
+</html>
